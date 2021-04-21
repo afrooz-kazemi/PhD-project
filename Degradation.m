@@ -51,31 +51,28 @@ UCS = -539.11;
 %input data for three stress ratio.
 %T-T
 R01 = 0.1;
-aa = TestData1(:,1);
+Test1 = sortrows(TestData1,2);
+aa = Test1(:,1);
 sigmaA1 = aa{:, 1};
-nn = TestData1(:,2);
+nn = Test1(:,2);
 N1 = nn{:, 1};
-rr = TestData1(:,3);
-sigmaR1 = rr{:, 1};
-[c1, s1] = sendeckyj_parameter(sigmaA1, N1, sigmaR1);
+[c1, s1] = sendeckyj_parameter(UTS, sigmaA1, N1);
 %T-C loading
 R02 = -1;
-aa = TestData2(:,1);
+Test2 = sortrows(TestData2,2);
+aa = Test2(:,1);
 sigmaA2 = aa{:, 1};
-nn = TestData2(:,2);
+nn = Test2(:,2);
 N2 = nn{:, 1};
-rr = TestData2(:,3);
-sigmaR2 = rr{:, 1};
-[c2, s2] = sendeckyj_parameter(sigmaA2, N2, sigmaR2);
+[c2, s2] = sendeckyj_parameter(UTS, sigmaA2, N2);
 %C-C loading
 R03 = 10;
-aa = TestData3(:,1);
+Test3 = sortrows(TestData3,2);
+aa = Test3(:,1);
 sigmaA3 = aa{:, 1};
-nn = TestData3(:,2);
+nn = Test3(:,2);
 N3 = nn{:, 1};
-rr = TestData3(:,3);
-sigmaR3 = rr{:, 1};
-[c3, s3] = sendeckyj_parameter(sigmaA3, N3, sigmaR3);
+[c3, s3] = sendeckyj_parameter(abs(UCS), sigmaA3, N3);
 %data finishes.
 
 %estimate number of cycles to failure for rfCountingply loads.
@@ -415,42 +412,53 @@ end
 f = rainflow;
 end
 
-function [c, s] = sendeckyj_parameter(sigmaA, N, sigmaR)
-c0=linspace(0,1,101);
-s0=linspace(0,1,101);
-for i=1:length(c0)
-    for j=1:length(s0)
-        for k=1:length(sigmaA)
-            sigmaE(k) = sigmaA(k)*(((sigmaR(k)/sigmaA(k)).^(1/s0(j)) + (N(k)-1)*c0(i)).^s0(j));%Equivalent static strength.
+function [c, s] = sendeckyj_parameter(SStrength, sigmaA, N)
+index = find(N<10000,1,'last');
+LowCP = polyfit(log10(N(1:index)),sigmaA(1:index),1);
+HighCP = polyfit(log10(N(index+1:length(N))),log10(sigmaA(index+1:length(N))),1);
+c0=linspace(0.01,1,101);
+s0=linspace(0.01,1,101);
+
+for i = 1:length(c0)
+    for j = 1:length(s0)
+        for k = 1:length(N)
+            if N(k) < 10000
+                Diff(k) = abs((LowCP(1).*log10(N(k))+LowCP(2))-(SStrength./((1-c0(i)+c0(i).*N(k)).^s0(j))))^2;
+            else
+                Diff(k) = abs((10.^(HighCP(1).*log10(N(k))+HighCP(2)))-(SStrength./((1-c0(i)+c0(i).*N(k)).^s0(j))))^2;
+            end
         end
-        wbp = wblfit(sigmaE);%find weibull parameters.
-        alpha(i,j) = wbp(2);
+        SSE(i,j) = sqrt(mean(Diff));
     end
 end
-max_alpha = max(alpha(:));
-[row,col] = find(alpha==max_alpha);
+MinSSE = min(SSE(:));
+[row,col] = find(SSE==MinSSE);
 c = c0(row);
 s = s0(col);
-for l=1:2
+
+for l = 1:2
     m = c - (1/(10^(l+1)));
     n = c + (1/(10^(l+1)));
     o = s - (1/(10^(l+1)));
     p = s + (1/(10^(l+1)));
-    c0 = linspace(m,n,21);
-    s0 = linspace(o,p,21);
-    for i=1:length(c0)
-        for j=1:length(s0)
-            for k=1:length(sigmaA)
-                sigmaE(k) = sigmaA(k)*(((sigmaR(k)/sigmaA(k)).^(1/s0(j)) + (N(k)-1)*c0(i)).^s0(j));
+    c0 = linspace(m,n,21); %New smaller range for C
+    s0 = linspace(o,p,21); %New smaller range for S
+    for i = 1:length(c0)
+        for j = 1:length(s0)
+            for k = 1:length(N)
+                if N(k) < 10000
+                    Diff(k) = abs((LowCP(1).*log10(N(k))+LowCP(2))-(SStrength./((1-c0(i)+c0(i).*N(k)).^s0(j))))^2;
+                else
+                    Diff(k) = abs((10.^(HighCP(1).*log10(N(k))+HighCP(2)))-(SStrength./((1-c0(i)+c0(i).*N(k)).^s0(j))))^2;
+                end
             end
-            wbp = wblfit(sigmaE);
-            alpha(i,j) = wbp(2);
+            SSE(i,j) = sqrt(mean(Diff));
         end
     end
-max_alpha = max(alpha(:));
-[row, col] = find(alpha==max_alpha);
-c = min(c0(row),1);
-s = min(s0(col),1);
+    MinSSE = min(SSE(:));
+    [row,col] = find(SSE==MinSSE);
+    c = c0(row);
+    s = s0(col);
 end
 end
 
