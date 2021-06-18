@@ -24,8 +24,8 @@ rf = MarkovMatrix(rf);
 rfCounting = unique(rf(:,[2 3]), 'rows');
 rfCounting(:,2:end+1) = rfCounting(:,1:end);
 rfCounting(:,1) = 0;
-for i = 1:length(rf)
-    for j = 1:length(rfCounting)
+for i = 1:size(rf,1)
+    for j = 1:size(rfCounting,1)
     if rf(i,2) == rfCounting(j,2) && rf(i,3)==rfCounting(j,3)
         rfCounting(j,1) = rfCounting(j,1)+rf(i,1);
     end
@@ -38,8 +38,8 @@ end
 ff = TF1Flatwise(:,1);
 tF = ff{:, 1};
 for k = 1:length(tF)
-    rfCountingply{k}(:,3) = rfCounting(:,3)*tF(k);
-    rfCountingply{k}(:,2) = rfCounting(:,2)*tF(k);
+    rfCountingply{k}(:,3) = rfCounting(:,3)*abs(tF(k));
+    rfCountingply{k}(:,2) = rfCounting(:,2)*abs(tF(k));
     rfCountingply{k}(:,1) = rfCounting(:,1);
     rfCountingply{k} = MarkovMatrix(rfCountingply{k});
 end
@@ -76,8 +76,8 @@ N3 = nn{:, 1};
 %data finishes.
 
 %estimate number of cycles to failure for rfCountingply loads.
-for k = 1:length(rfCountingply)
-    for i = 1:length(rfCountingply{k})
+for k = 1:size(rfCountingply,2)
+    for i = 1:size(rfCountingply{k},1)
         rfCountingply{k}(i,4) = (2*rfCountingply{k}(i,3)-rfCountingply{k}(i,2))./(2*rfCountingply{k}(i,3)+rfCountingply{k}(i,2));%find stress ratio for each row.
         if R01<=rfCountingply{k}(i,4) && rfCountingply{k}(i,4)<1
             x = [UTS rfCountingply{k}(i,3)];
@@ -133,7 +133,6 @@ for k = 1:length(rfCountingply)
                 x_intersect = fzero(@(x) polyval(p2-p1,x),0);
                 y_intersect = polyval(p2,x_intersect);
                 amplitude = amp2(1)*(((rfCountingply{k}(i,2)/2)-y_intersect)/y_intersect)+amp2(1);
-                amp2(1)*(((rfCountingply{k}(i,2)/2)-y_intersect)/y_intersect)+amp2(1)
                 rfCountingply{k}(i,5) = (1/c2)*(c2-1+(UTS/(2*amplitude/(1-R02)))^(1/s2));
             end
         end
@@ -199,15 +198,9 @@ end
 
 %estimate nou and residual strength for rfCountingply loads.
 for year = 1:200
-    for k = 1:length(rfCountingply)
+    for k = 1:size(rfCountingply,2)
         rfCountingply{k}(:,1) = rfCountingply{k}(:,1)*year;
-        for i = 1:length(rfCountingply{k})%check for the first failure criteria.
-            if rfCountingply{k}(i,1) >= rfCountingply{k}(i,5)
-                fprintf('FAIL\n');
-                return
-            end
-        end
-        for i = 1:length(rfCountingply{k})
+        for i = 1:size(rfCountingply{k},1)
             amp3 = 0; amp2 = amp3; amp1 = amp2;
             mean3 = 0; mean2 = mean3; mean1 = mean2;
             nou3 = 0; nou2 = nou3; nou1 = nou2;
@@ -376,7 +369,7 @@ for year = 1:200
                 rfCountingply{k}(i,9) = abs(UCS)-(abs(UCS)-abs(rfCountingply{k}(i,2)/(1-rfCountingply{k}(i,4))))*((rfCountingply{k}(i,7)+rfCountingply{k}(i,1))/rfCountingply{k}(i,5))^rfCountingply{k}(i,6);
                 rfCountingply{k}(i,8) = rfCountingply{k}(i,9)*UTS/abs(UCS);
             end
-            if abs(rfCountingply{k}(i,2)/(1-rfCountingply{k}(i,4))) >= rfCountingply{k}(i,8) || abs(rfCountingply{k}(i,2)/(1-rfCountingply{k}(i,4))) >= rfCountingply{k}(i,9)%check for second failure criteria.
+            if abs(rfCountingply{k}(i,2)/(1-rfCountingply{k}(i,4))) >= rfCountingply{k}(i,8) || abs(rfCountingply{k}(i,2)/(1-rfCountingply{k}(i,4))) >= rfCountingply{k}(i,9)%failure criteria.
                 fprintf('FAIL\n');
                 return
             end
@@ -403,7 +396,7 @@ while aveMean(1) + d*i <= maxMean
     aveMean(i+1) = aveMean(1) + d*i;
     i = i+1;
 end
-for i = 1:length(rainflow)
+for i = 1:size(rainflow,1)
     [~,idx] = min(abs(rainflow(i,2)-aveRange));
     rainflow(i,2) = aveRange(idx);
     [~,idx] = min(abs(rainflow(i,3)-aveMean));
